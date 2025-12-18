@@ -6,7 +6,7 @@ from service.agent_service import AgentService
 agent_router = APIRouter(prefix="/agent")
 
 
-@agent_router.post("ask", response_model=str, status_code=status.HTTP_201_CREATED)
+@agent_router.post("/ask", response_model=str, status_code=status.HTTP_201_CREATED)
 async def create_task(payload: str, agent_service: AgentService = Depends(get_agent_service)):
     try:
         return await agent_service.ask_agent(payload=payload)

@@ -30,7 +30,7 @@ def list_tasks(query: QueryTask = Depends(), task_service: TaskService = Depends
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@task_router.get("{id}", response_model=Task)
+@task_router.get("/{id}", response_model=Task)
 def get_task(id: int, task_service: TaskService = Depends(get_task_service)):
     try:
         task = task_service.read_one(query=IdTask(id=id))
@@ -43,7 +43,7 @@ def get_task(id: int, task_service: TaskService = Depends(get_task_service)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@task_router.patch("{id}", response_model=Task)
+@task_router.patch("/{id}", response_model=Task)
 def update_task(id: int, payload: UpdateTask, task_service: TaskService = Depends(get_task_service)):
     try:
         updated = task_service.update_one(query=IdTask(id=id), payload=payload)
@@ -59,7 +59,7 @@ def update_task(id: int, payload: UpdateTask, task_service: TaskService = Depend
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@task_router.delete("{id}", status_code=status.HTTP_204_NO_CONTENT, )
+@task_router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT, )
 def delete_task(id: int, task_service: TaskService = Depends(get_task_service)):
     try:
         deleted = task_service.delete_one(query=IdTask(id=id))

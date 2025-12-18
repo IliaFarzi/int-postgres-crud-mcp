@@ -15,9 +15,11 @@ async def lifespan(app: FastAPI):
     task_service = TaskService(url=str(config.db_url))
 
     mcp_client = MultiServerMCPClient(
-        {"TaskManager": {"transport": "stdio", "command": "python", "args": ["./task_mcp_server.py"]}}
-    )
+        {"TaskManager": {"transport": "stdio", "command": "python", "args": ["./task_mcp_server.py"]}})
     tools = await mcp_client.get_tools()
+    for t in tools:
+        print(f"- {t.name}: {t.description}")
+        print(t.args)
     agent_service = AgentService(tools=tools)
 
     app.state.config = config

@@ -1,4 +1,4 @@
-from typing import Literal, List
+from typing import Optional, Literal, List
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
@@ -12,6 +12,7 @@ from service.config_service import ConfigService
 from service.task_service import TaskService
 
 mcp = FastMCP("TaskManagement")
+
 config = ConfigService(override=True).config
 task_service = TaskService(url=str(config.db_url))
 
@@ -19,89 +20,158 @@ task_service = TaskService(url=str(config.db_url))
 @mcp.tool()
 def create_task(payload: CreateTask) -> Task:
     """
-    Creates a new task using the provided payload.
-    Input: payload (CreateTask) with title, description, and optional status.
-    Output: Task object representing the newly created task, including id, status, created_at, and updated_at.
+    Create a new task.
+
+    Input:
+      payload: CreateTask
+        - title (str, required)
+        - description (str, optional)
+        - status (optional: 'pending' | 'in_progress' | 'done')
+
+    Output:
+      Task object with id, title, description, status, created_at, updated_at.
+
+    Example call:
+      {
+        "payload": {
+          "title": "Write documentation",
+          "description": "Draft MCP server docs",
+          "status": "pending"
+        }
+      }
     """
     try:
         return task_service.create_one(payload=payload)
     except ValueError as ve:
         raise ToolError(str(ve))
-    except Exception as e:
-        raise ToolError("Unexpected error while creating task")
+    except Exception:
+        raise ToolError("internal_error: failed to create task")
 
 
 @mcp.tool()
-def list_tasks(query: QueryTask) -> List[Task]:
+def list_tasks(query: Optional[QueryTask] = None) -> List[Task]:
     """
-    Retrieves a list of tasks filtered by optional query parameters.
-    Input: query (QueryTask) with optional title, description, and status.
-    Output: List of Task objects matching the filters; empty list if no tasks match.
+    List tasks with optional filters.
+
+    Input:
+      query (optional): QueryTask
+        - title (str, optional, substring match)
+        - description (str, optional, substring match)
+        - status (optional: 'pending' | 'in_progress' | 'done')
+
+    Output:
+      List of Task objects. Returns an empty list if no tasks match.
+
+    Example call (list all tasks):
+      {}
+
+    Example call (filtered):
+      {
+        "query": {
+          "status": "pending",
+          "title": "write"
+        }
+      }
     """
     try:
-        return task_service.read_many(query=query)
-    except Exception as e:
-        raise ToolError("Unexpected error while listing tasks")
+        return task_service.read_many(query=query or QueryTask())
+    except Exception:
+        raise ToolError("internal_error: failed to list tasks")
 
 
 @mcp.tool()
 def get_task_by_id(id: int) -> Task:
     """
-    Retrieves a single task by its ID.
-    Input: id (int) representing the task identifier.
-    Output: Task object corresponding to the ID.
-    Raises ToolError with code 'not_found' if the task does not exist.
+    Retrieve a single task by ID.
+
+    Input:
+      id (int): Task identifier.
+
+    Output:
+      Task object.
+
+    Errors:
+      - not_found: task does not exist
+
+    Example call:
+      {
+        "id": 42
+      }
     """
     try:
         task = task_service.read_one(query=IdTask(id=id))
         if task is None:
-            raise ToolError(f"Task with ID {id} not found")
+            raise ToolError(f"not_found: task with id {id} does not exist")
         return task
     except ToolError:
         raise
-    except Exception as e:
-        raise ToolError("Unexpected error while fetching task")
+    except Exception:
+        raise ToolError("internal_error: failed to fetch task")
 
 
 @mcp.tool()
-def update_task_status(id: int, status: Literal['pending', 'in_progress', 'done']) -> Task:
+def update_task_status(id: int, status: Literal["pending", "in_progress", "done"], ) -> Task:
     """
-    Updates the status field of a task by its ID.
-    Input: id (int) of the task, status (Literal) new status value.
-    Output: Task object representing the updated task with new status and updated_at timestamp.
-    Raises ToolError with code 'not_found' if the task does not exist.
-    Raises ToolError with code 'validation_error' if the update payload is invalid.
+    Update the status of a task.
+
+    Input:
+      id (int): Task identifier.
+      status (Literal): New status value.
+
+    Output:
+      Updated Task object.
+
+    Errors:
+      - not_found: task does not exist
+      - validation_error: invalid status or update failure
+
+    Example call:
+      {
+        "id": 42,
+        "status": "done"
+      }
     """
     try:
-        updated = task_service.update_one(query=IdTask(id=id), payload=UpdateTask(status=status))
+        updated = task_service.update_one(query=IdTask(id=id), payload=UpdateTask(status=status), )
         if updated is None:
-            raise ToolError(f"Task with ID {id} not found")
+            raise ToolError(f"not_found: task with id {id} does not exist")
         return updated
     except ValueError as ve:
-        raise ToolError(str(ve))
+        raise ToolError(f"validation_error: {ve}")
     except ToolError:
         raise
-    except Exception as e:
-        raise ToolError("Unexpected error while updating task")
+    except Exception:
+        raise ToolError("internal_error: failed to update task")
 
 
 @mcp.tool()
 def delete_task(id: int) -> bool:
     """
-    Deletes a task by its ID.
-    Input: id (int) representing the task identifier.
-    Output: None on successful deletion.
-    Raises ToolError with code 'not_found' if the task does not exist.
+    Delete a task by ID.
+
+    Input:
+      id (int): Task identifier.
+
+    Output:
+      true if deletion succeeded.
+
+    Errors:
+      - not_found: task does not exist
+
+    Example call:
+      {
+        "id": 42
+      }
     """
     try:
         deleted = task_service.delete_one(query=IdTask(id=id))
         if not deleted:
-            raise ToolError(f"Task with ID {id} not found")
-        return deleted
+            raise ToolError(f"not_found: task with id {id} does not exist")
+        return True
     except ToolError:
         raise
-    except Exception as e:
-        raise ToolError("Unexpected error while deleting task")
+    except Exception:
+        raise ToolError("internal_error: failed to delete task")
 
 
 if __name__ == "__main__":
