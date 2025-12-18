@@ -117,3 +117,13 @@ npx @modelcontextprotocol/inspector python task_mcp_server.py
 
 * Ensure `.env` credentials match between `POSTGRES_PASSWORD` and `DATABASE_URL`. Mismatch will cause authentication errors.
 * Use `docker-compose down -v` to reset containers and database volumes if needed.
+
+---
+<p float="left">
+  <img src="./imgs/1.png" width="400" />
+  <img src="./imgs/2.png" width="400" />
+</p>
+<p float="left">
+  <img src="./imgs/3.png" width="400" />
+  <img src="./imgs/4.png" width="400" />
+</p>
