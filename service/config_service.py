@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from model.config import Config
+from domain.model.config import Config
 
 
 class ConfigService:

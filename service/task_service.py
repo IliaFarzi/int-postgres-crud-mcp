@@ -1,14 +1,14 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Union
 
 import psycopg
 from psycopg.rows import dict_row
 
-from model.dto.create_task import CreateTask
-from model.dto.id_task import IdTask
-from model.dto.query_task import QueryTask
-from model.dto.update_task import UpdateTask
-from model.task import Task
+from domain.dto.create_task import CreateTask
+from domain.dto.id_task import IdTask
+from domain.dto.query_task import QueryTask
+from domain.dto.update_task import UpdateTask
+from domain.model.task import Task
 
 
 class TaskService:
@@ -26,7 +26,7 @@ class TaskService:
             self.conn.close()
 
     def _bootstrap_schema(self):
-        schema_path = Path(__file__).resolve().parent.parent / "model" / "db" / "schema.sql"
+        schema_path = Path(__file__).resolve().parent.parent / "domain" / "db" / "task_schema.sql"
         if not schema_path.exists():
             return
         sql = schema_path.read_text(encoding="utf-8")
@@ -43,7 +43,7 @@ class TaskService:
     def row_to_task(row: dict) -> Task:
         return Task.model_validate(row)
 
-    def create_item(self, payload: CreateTask) -> Task:
+    def create_one(self, payload: CreateTask) -> Task:
         # Validate via Pydantic (raises if invalid)
         data = payload.model_dump()
         with self.conn.cursor(row_factory=dict_row) as cur:
@@ -56,12 +56,9 @@ class TaskService:
         self.conn.commit()
         return TaskService.row_to_task(row)
 
-    def read_items(self, query: QueryTask) -> List[Task]:
+    def read_many(self, query: QueryTask) -> List[Task]:
         clauses = []
         params: List[object] = []
-        if query.id is not None:
-            clauses.append("id = %s")
-            params.append(query.id)
         if query.title is not None:
             clauses.append("title ILIKE %s")
             params.append(f"%{query.title}%")
@@ -71,12 +68,6 @@ class TaskService:
         if query.status is not None:
             clauses.append("status = %s")
             params.append(query.status)
-        if query.created_at is not None:
-            clauses.append("created_at >= %s")
-            params.append(query.created_at)
-        if query.updated_at is not None:
-            clauses.append("updated_at >= %s")
-            params.append(query.updated_at)
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         sql = f"SELECT id, title, description, status, created_at, updated_at FROM {self.table_name} {where_sql} ORDER BY id"
@@ -85,7 +76,44 @@ class TaskService:
             rows = cur.fetchall()
         return [TaskService.row_to_task(r) for r in rows]
 
-    def update_item(self, query: IdTask, payload: UpdateTask) -> Task:
+    def read_one(self, query: Union[QueryTask, IdTask]) -> Optional[Task]:
+        clauses: list[str] = []
+        params: list[object] = []
+
+        if isinstance(query, IdTask) and query.id is not None:
+            clauses.append("id = %s")
+            params.append(query.id)
+
+        if isinstance(query, QueryTask):
+            if query.title is not None:
+                clauses.append("title ILIKE %s")
+                params.append(f"%{query.title}%")
+
+            if query.description is not None:
+                clauses.append("description ILIKE %s")
+                params.append(f"%{query.description}%")
+
+            if query.status is not None:
+                clauses.append("status = %s")
+                params.append(query.status)
+
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        sql = f"""
+            SELECT id, title, description, status, created_at, updated_at
+            FROM {self.table_name}
+            {where_sql}
+            ORDER BY id
+            LIMIT 1
+        """
+
+        with self.conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, params)
+            row = cur.fetchone()
+
+        return TaskService.row_to_task(row) if row else None
+
+    def update_one(self, query: IdTask, payload: UpdateTask) -> Optional[Task]:
         data = payload.model_dump(exclude_unset=True)
         sets = []
         params: List[object] = []
@@ -103,14 +131,14 @@ class TaskService:
             with self.conn.cursor(row_factory=dict_row) as cur:
                 cur.execute(
                     f"SELECT id, title, description, status, created_at, updated_at FROM {self.table_name} WHERE id = %s",
-                    (query.get('id'),), )
+                    (query.id,), )
                 row = cur.fetchone()
             if row is None:
-                raise ValueError(f"Task with id={query.get('id')} not found")
+                raise ValueError(f"Task with id={query.id} not found")
             return TaskService.row_to_task(row)
 
         set_sql = ', '.join(sets)
-        params.append(query.get('id'))
+        params.append(query.id)
         with self.conn.cursor(row_factory=dict_row) as cur:
             cur.execute(f"""
                 UPDATE {self.table_name}
@@ -120,13 +148,11 @@ class TaskService:
                 """, params, )
             row = cur.fetchone()
         self.conn.commit()
-        if row is None:
-            raise ValueError(f"Task with id={query.get('id')} not found")
-        return TaskService.row_to_task(row)
+        return TaskService.row_to_task(row) if row else None
 
-    def delete_item(self, query: IdTask) -> bool:
+    def delete_one(self, query: IdTask) -> bool:
         with self.conn.cursor() as cur:
-            cur.execute(f"DELETE FROM {self.table_name} WHERE id = %s RETURNING id", (query.get('id')))
+            cur.execute(f"DELETE FROM {self.table_name} WHERE id = %s RETURNING id", (query.id,))
             row = cur.fetchone()
         self.conn.commit()
         return row is not None
