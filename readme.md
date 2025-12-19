@@ -20,7 +20,6 @@ The architecture ensures:
 - **FastAPI** (REST API server)
 - **FastMCP** (mcp server)
 - **dotenv** (environment variables)
-- **py**
 - **psycopg** (PostgreSQL client)
 - **pydantic** (data validation)
 - **langchain[openai]** (agent integration)
