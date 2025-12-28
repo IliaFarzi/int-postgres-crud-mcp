@@ -53,7 +53,3 @@ services:
       - "8000:8000"
     networks:
       - task_mcp_network
-    environment:
-      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:4317
-      OTEL_SERVICE_NAME: task-mcp-agent

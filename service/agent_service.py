@@ -2,6 +2,8 @@ from typing import Any, List
 
 from langchain.agents import create_agent
 from langchain_core.messages import SystemMessage, HumanMessage
+from phoenix.otel import register
+
 
 TASK_SYSTEM_PROMPT = """
 You are a Task Management Agent that interacts exclusively via MCP tools.
@@ -23,6 +25,11 @@ class AgentService:
         self.model = "openai:gpt-4o-mini"
         self.tools = tools
         self.agent = create_agent(self.model, self.tools)
+        self.tracer_provider = register(
+            project_name="task-mcp-app",
+            auto_instrument=True,  # Auto-instruments OpenAI, LangChain, etc.
+            batch=False,  # Send spans immediately (recommended for local dev)
+         )
 
     async def ask_agent(self, payload: str) -> str:
         if not self.agent:
