@@ -40,6 +40,8 @@ POSTGRES_USER=root
 POSTGRES_PASSWORD=123qwe123QWE
 DATABASE_URL=postgresql://root:123qwe123QWE@postgres:5432/task_mcp
 OPENAI_API_KEY=<your_openai_api_key_here>
+PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
+PHOENIX_ENABLE_TRACING=true
 ````
 
 > **Hint:** The `DATABASE_URL` uses the Docker network hostname (`postgres`) instead of `localhost` because containers are connected over a Docker network.

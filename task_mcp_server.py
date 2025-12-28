@@ -10,13 +10,24 @@ from domain.dto.update_task import UpdateTask
 from domain.model.task import Task
 from service.config_service import ConfigService
 from service.task_service import TaskService
+from phoenix.otel import register
+from phoenix.otel import tracer
+
+
 
 mcp = FastMCP("TaskManagement")
+
+
+tracer_provider = register(
+    project_name="task-mcp-app",
+    auto_instrument=True,  # Auto-instruments OpenAI, LangChain, etc.
+    batch=False,  # Send spans immediately (recommended for local dev)
+)
 
 config = ConfigService(override=True).config
 task_service = TaskService(url=str(config.db_url))
 
-
+@tracer.tool
 @mcp.tool()
 def create_task(payload: CreateTask) -> Task:
     """
@@ -47,7 +58,7 @@ def create_task(payload: CreateTask) -> Task:
     except Exception:
         raise ToolError("internal_error: failed to create task")
 
-
+@tracer.tool
 @mcp.tool()
 def list_tasks(query: Optional[QueryTask] = None) -> List[Task]:
     """
@@ -78,7 +89,7 @@ def list_tasks(query: Optional[QueryTask] = None) -> List[Task]:
     except Exception:
         raise ToolError("internal_error: failed to list tasks")
 
-
+@tracer.tool
 @mcp.tool()
 def get_task_by_id(id: int) -> Task:
     """
@@ -108,7 +119,7 @@ def get_task_by_id(id: int) -> Task:
     except Exception:
         raise ToolError("internal_error: failed to fetch task")
 
-
+@tracer.tool
 @mcp.tool()
 def update_task_status(id: int, status: Literal["pending", "in_progress", "done"], ) -> Task:
     """
@@ -143,7 +154,7 @@ def update_task_status(id: int, status: Literal["pending", "in_progress", "done"
     except Exception:
         raise ToolError("internal_error: failed to update task")
 
-
+@tracer.tool
 @mcp.tool()
 def delete_task(id: int) -> bool:
     """

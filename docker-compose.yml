@@ -2,6 +2,7 @@ version: '3.9'
 
 volumes:
   postgres_data:
+  phoenix_data:
 
 networks:
   task_mcp_network:
@@ -27,6 +28,18 @@ services:
       timeout: 5s
       retries: 5
 
+  phoenix:
+    image: arizephoenix/phoenix:12.27.0
+    container_name: task_mcp_phoenix
+    restart: unless-stopped
+    networks:
+      - task_mcp_network
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+    volumes:
+      - phoenix_data:/data
+
   app:
     build: .
     container_name: task_mcp_app
@@ -34,7 +47,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      phoenix:
+        condition: service_started
     ports:
       - "8000:8000"
     networks:
       - task_mcp_network
+    environment:
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:4317
+      OTEL_SERVICE_NAME: task-mcp-agent
